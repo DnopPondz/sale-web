@@ -165,6 +165,7 @@ const AdminResource = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {data.map((item: any) => (
                 <TableRow key={item._id}>
                   <TableCell>{item._id}</TableCell>

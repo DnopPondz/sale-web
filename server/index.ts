@@ -12,7 +12,7 @@ import { Coupon } from "./models/Coupon";
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "*";
 
-const models: Record<string, Model<any>> = {
+const models: Record<string, Model<unknown>> = {
   products: Product,
   orders: Order,
   users: User,
@@ -110,17 +110,17 @@ const server = http.createServer(async (req, res) => {
           Model.countDocuments(),
         ]);
 
-        return sendJson(res, {
-          items,
-          pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-        });
+        // ส่งจำนวนรวมผ่าน header เพื่อรองรับการทำ pagination ฝั่ง client
+        res.setHeader("X-Total-Count", String(total));
+        return sendJson(res, items);
       }
 
       case "POST": {
-        const raw = await getBody(req).catch((e) => {
-          throw new Error(e?.message || "Read body failed");
+        const raw = await getBody(req).catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(msg || "Read body failed");
         });
-        let payload: any = {};
+        let payload: Record<string, unknown> = {};
         try {
           payload = raw ? JSON.parse(raw) : {};
         } catch {
@@ -134,10 +134,11 @@ const server = http.createServer(async (req, res) => {
         if (!id) return sendJson(res, { error: "Missing id" }, 400);
         if (!isValidObjectId(id)) return sendJson(res, { error: "Invalid id" }, 400);
 
-        const raw = await getBody(req).catch((e) => {
-          throw new Error(e?.message || "Read body failed");
+        const raw = await getBody(req).catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(msg || "Read body failed");
         });
-        let payload: any = {};
+        let payload: Record<string, unknown> = {};
         try {
           payload = raw ? JSON.parse(raw) : {};
         } catch {
@@ -162,12 +163,12 @@ const server = http.createServer(async (req, res) => {
         res.setHeader("Allow", "GET,POST,PUT,DELETE,OPTIONS");
         return sendJson(res, { error: "Method not allowed" }, 405);
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     // แยก error พบบ่อยให้เข้าใจง่าย
-    if (err?.message?.includes("Payload too large")) {
+    if (err instanceof Error && err.message.includes("Payload too large")) {
       return sendJson(res, { error: "Payload too large" }, 413);
     }
-    return sendJson(res, { error: err?.message || "Internal server error" }, 500);
+    return sendJson(res, { error: err instanceof Error ? err.message : "Internal server error" }, 500);
   }
 });
 
