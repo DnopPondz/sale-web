@@ -6,7 +6,9 @@ const productSchema = new Schema(
     name: { type: String, required: true },
     description: String,
     price: { type: Number, required: true },
+    codex/add-mongodb-database-connection-32h9cj
     category: { type: String, required: true },
+
   },
   { timestamps: true }
 );
