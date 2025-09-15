@@ -1,6 +1,6 @@
 /* eslint-env node */
 import http, { IncomingMessage, ServerResponse } from "http";
-import type { Model } from "mongoose";
+import { Model, isValidObjectId } from "mongoose";
 import { connectToDatabase } from "../src/lib/db";
 import { Product } from "./models/Product";
 import { Order } from "./models/Order";
@@ -8,7 +8,11 @@ import { User } from "./models/User";
 import { Promotion } from "./models/Promotion";
 import { Coupon } from "./models/Coupon";
 
-const models: Record<string, Model<unknown>> = {
+// ---------------------- Config ----------------------
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || "*";
+
+const models: Record<string, Model<any>> = {
   products: Product,
   orders: Order,
   users: User,
@@ -16,73 +20,158 @@ const models: Record<string, Model<unknown>> = {
   coupons: Coupon,
 };
 
-const getBody = (req: IncomingMessage): Promise<string> => {
-  return new Promise((resolve) => {
-    let data = "";
-    req.on("data", (chunk) => {
-      data += chunk;
-    });
-    req.on("end", () => resolve(data));
-  });
+// ---------------------- Utils ----------------------
+const setCors = (res: ServerResponse) => {
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 };
 
 const sendJson = (res: ServerResponse, data: unknown, status = 200) => {
+  setCors(res);
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.end(JSON.stringify(data));
 };
 
-const server = http.createServer(async (req, res) => {
-  if (!req.url) {
-    sendJson(res, { error: "Invalid request" }, 400);
-    return;
-  }
-
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const [, api, resource, id] = url.pathname.split("/");
-
-  if (req.method === "OPTIONS") {
-    sendJson(res, {});
-    return;
-  }
-
-  if (api !== "api" || !resource || !models[resource]) {
-    sendJson(res, { error: "Not found" }, 404);
-    return;
-  }
-
-  await connectToDatabase();
-  const Model = models[resource];
-
-  try {
-    if (req.method === "GET") {
-      if (id) {
-        const doc = await Model.findById(id).lean();
-        sendJson(res, doc);
-      } else {
-        const docs = await Model.find().lean();
-        sendJson(res, docs);
+const getBody = (req: IncomingMessage): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (chunk) => {
+      data += chunk;
+      // ป้องกัน body ใหญ่ผิดปกติ (ปรับได้ตามต้องการ)
+      if (data.length > 1_000_000) {
+        reject(new Error("Payload too large"));
+        req.destroy();
       }
-    } else if (req.method === "POST") {
-      const body = await getBody(req);
-      const created = await Model.create(JSON.parse(body || "{}"));
-      sendJson(res, created, 201);
-    } else if (req.method === "PUT" && id) {
-      const body = await getBody(req);
-      const updated = await Model.findByIdAndUpdate(id, JSON.parse(body || "{}"), { new: true }).lean();
-      sendJson(res, updated);
-    } else if (req.method === "DELETE" && id) {
-      await Model.findByIdAndDelete(id);
-      sendJson(res, { success: true });
-    } else {
-      sendJson(res, { error: "Method not allowed" }, 405);
+    });
+    req.on("end", () => resolve(data));
+    req.on("error", reject);
+  });
+};
+
+// ---------------------- Server ----------------------
+const server = http.createServer(async (req, res) => {
+  try {
+    // CORS preflight
+    if (req.method === "OPTIONS") {
+      setCors(res);
+      res.statusCode = 204;
+      return res.end();
     }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    sendJson(res, { error: message }, 500);
+
+    if (!req.url || !req.headers.host) {
+      return sendJson(res, { error: "Invalid request" }, 400);
+    }
+
+    const url = new URL(req.url, `http://${req.headers.host}`);
+
+    // Health check
+    if (url.pathname === "/healthz" && req.method === "GET") {
+      return sendJson(res, { ok: true });
+    }
+
+    // Expect: /api/:resource or /api/:resource/:id
+    const parts = url.pathname.split("/").filter(Boolean); // removes empty
+    const [api, resource, id] = parts;
+
+    if (api !== "api" || !resource) {
+      return sendJson(res, { error: "Not found" }, 404);
+    }
+
+    const Model = models[resource];
+    if (!Model) {
+      return sendJson(res, { error: `Unknown resource: ${resource}` }, 404);
+    }
+
+    // connect DB (จะ cache connection ใน connectToDatabase อยู่แล้ว)
+    await connectToDatabase();
+
+    // Routing
+    switch (req.method) {
+      case "GET": {
+        // /api/:resource/:id
+        if (id) {
+          if (!isValidObjectId(id)) {
+            return sendJson(res, { error: "Invalid id" }, 400);
+          }
+          const doc = await Model.findById(id).lean();
+          if (!doc) return sendJson(res, { error: "Not found" }, 404);
+          return sendJson(res, doc);
+        }
+
+        // /api/:resource?limit=&page=
+        const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
+        const page = Math.max(Number(url.searchParams.get("page")) || 1, 1);
+        const skip = (page - 1) * limit;
+
+        const [items, total] = await Promise.all([
+          Model.find().skip(skip).limit(limit).lean(),
+          Model.countDocuments(),
+        ]);
+
+        return sendJson(res, {
+          items,
+          pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
+      }
+
+      case "POST": {
+        const raw = await getBody(req).catch((e) => {
+          throw new Error(e?.message || "Read body failed");
+        });
+        let payload: any = {};
+        try {
+          payload = raw ? JSON.parse(raw) : {};
+        } catch {
+          return sendJson(res, { error: "Invalid JSON" }, 400);
+        }
+        const created = await Model.create(payload);
+        return sendJson(res, created, 201);
+      }
+
+      case "PUT": {
+        if (!id) return sendJson(res, { error: "Missing id" }, 400);
+        if (!isValidObjectId(id)) return sendJson(res, { error: "Invalid id" }, 400);
+
+        const raw = await getBody(req).catch((e) => {
+          throw new Error(e?.message || "Read body failed");
+        });
+        let payload: any = {};
+        try {
+          payload = raw ? JSON.parse(raw) : {};
+        } catch {
+          return sendJson(res, { error: "Invalid JSON" }, 400);
+        }
+
+        const updated = await Model.findByIdAndUpdate(id, payload, { new: true }).lean();
+        if (!updated) return sendJson(res, { error: "Not found" }, 404);
+        return sendJson(res, updated);
+      }
+
+      case "DELETE": {
+        if (!id) return sendJson(res, { error: "Missing id" }, 400);
+        if (!isValidObjectId(id)) return sendJson(res, { error: "Invalid id" }, 400);
+
+        const deleted = await Model.findByIdAndDelete(id).lean();
+        if (!deleted) return sendJson(res, { error: "Not found" }, 404);
+        return sendJson(res, { success: true });
+      }
+
+      default:
+        res.setHeader("Allow", "GET,POST,PUT,DELETE,OPTIONS");
+        return sendJson(res, { error: "Method not allowed" }, 405);
+    }
+  } catch (err: any) {
+    // แยก error พบบ่อยให้เข้าใจง่าย
+    if (err?.message?.includes("Payload too large")) {
+      return sendJson(res, { error: "Payload too large" }, 413);
+    }
+    return sendJson(res, { error: err?.message || "Internal server error" }, 500);
   }
 });
 
-server.listen(3000);
+server.listen(PORT, () => {
+  // log ยืนยันพอร์ต + ให้รู้ว่า Vite ยังรันที่ 8080
+  console.log(`🧩 API server listening on http://localhost:${PORT}`);
+});
