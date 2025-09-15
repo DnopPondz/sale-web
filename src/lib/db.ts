@@ -53,7 +53,7 @@ export const getDbHealth = (): DbHealth => {
     state: stateMap[rs] ?? "DISCONNECTED",
     readyState: rs,
     dbName: mongoose.connection.name,
-    host: (mongoose.connection as any).host,
+    host: (mongoose.connection as { host?: string }).host,
   };
 };
 
@@ -61,17 +61,17 @@ export const getDbHealth = (): DbHealth => {
 export const pingDb = async (): Promise<DbHealth> => {
   try {
     await connectToDatabase();
-    // @ts-ignore
+    // @ts-expect-error - admin is not typed in mongoose connection
     const ping = await mongoose.connection.db.admin().ping();
     return {
       ...getDbHealth(),
       ok: ping?.ok === 1 ? 1 : 0,
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
     return {
       ...getDbHealth(),
       ok: 0,
-      error: e?.message || String(e),
+      error: e instanceof Error ? e.message : String(e),
     };
   }
 };

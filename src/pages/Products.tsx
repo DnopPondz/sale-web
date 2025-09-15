@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Filter, ShoppingCart, Heart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,84 +17,58 @@ import chocolateBun from "@/assets/chocolate-bun.jpg";
 import blueberryBun from "@/assets/blueberry-bun.jpg";
 import honeyBun from "@/assets/honey-bun.jpg";
 
+const API_BASE = "http://localhost:3000/api";
+const imageMap: Record<string, string> = {
+  Sweet: cinnamonBun,
+  Fruit: blueberryBun,
+  Savory: honeyBun,
+  Special: chocolateBun,
+};
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  image?: string;
+  rating?: number;
+  reviews?: number;
+  category?: string;
+  inStock?: boolean;
+  featured?: boolean;
+}
+
 const Products = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("name");
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>(["all"]);
 
-  // Mock products data
-  const allProducts = [
-    {
-      id: "1",
-      name: "Classic Cinnamon Bun",
-      price: 4.99,
-      image: cinnamonBun,
-      rating: 4.8,
-      reviews: 124,
-      category: "Sweet",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "2",
-      name: "Chocolate Chip Delight",
-      price: 5.49,
-      image: chocolateBun,
-      rating: 4.9,
-      reviews: 89,
-      category: "Sweet",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "3",
-      name: "Blueberry Burst",
-      price: 5.29,
-      image: blueberryBun,
-      rating: 4.7,
-      reviews: 156,
-      category: "Fruit",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "4",
-      name: "Honey Glazed",
-      price: 4.79,
-      image: honeyBun,
-      rating: 4.6,
-      reviews: 203,
-      category: "Sweet",
-      inStock: false,
-    },
-    // Add more products by duplicating with different names
-    {
-      id: "5",
-      name: "Double Chocolate Bun",
-      price: 5.99,
-      image: chocolateBun,
-      rating: 4.8,
-      reviews: 67,
-      category: "Sweet",
-      inStock: true,
-    },
-    {
-      id: "6",
-      name: "Mixed Berry Bun",
-      price: 5.79,
-      image: blueberryBun,
-      rating: 4.5,
-      reviews: 92,
-      category: "Fruit", 
-      inStock: true,
-    },
-  ];
+  useEffect(() => {
+    fetch(`${API_BASE}/products`)
+      .then((res) => res.json())
+      .then((data: Product[]) => {
+        setAllProducts(data);
+        const cats = Array.from(
+          new Set(
+            data
+              .map((p) => p.category)
+              .filter((c): c is string => !!c)
+          )
+        );
+        setCategories(["all", ...cats]);
+      })
+      .catch(() => {
+        setAllProducts([]);
+        setCategories(["all"]);
+      });
+  }, []);
 
-  const categories = ["all", "Sweet", "Fruit", "Savory", "Special"];
-
-  const filteredProducts = allProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+  const filteredProducts = allProducts.filter((product) => {
+    const name = product.name || "";
+    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "all" || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -175,7 +149,18 @@ const Products = () => {
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => (
-                <ProductCard key={product.id} {...product} />
+                <ProductCard
+                  key={product._id}
+                  id={product._id}
+                  name={product.name}
+                  price={product.price}
+                  image={product.image || imageMap[product.category] || cinnamonBun}
+                  rating={product.rating || 0}
+                  reviews={product.reviews || 0}
+                  category={product.category || "Uncategorized"}
+                  inStock={product.inStock ?? true}
+                  featured={product.featured}
+                />
               ))}
             </div>
           ) : (

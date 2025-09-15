@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import ProductCard from "./ProductCard";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,52 +8,38 @@ import chocolateBun from "@/assets/chocolate-bun.jpg";
 import blueberryBun from "@/assets/blueberry-bun.jpg";
 import honeyBun from "@/assets/honey-bun.jpg";
 
+const API_BASE = "http://localhost:3000/api";
+const imageMap: Record<string, string> = {
+  Sweet: cinnamonBun,
+  Fruit: blueberryBun,
+  Savory: honeyBun,
+  Special: chocolateBun,
+};
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  image?: string;
+  rating?: number;
+  reviews?: number;
+  category?: string;
+  inStock?: boolean;
+  featured?: boolean;
+}
+
 const FeaturedProducts = () => {
-  const featuredProducts = [
-    {
-      id: "1",
-      name: "Classic Cinnamon Bun",
-      price: 4.99,
-      image: cinnamonBun,
-      rating: 4.8,
-      reviews: 124,
-      category: "Sweet",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "2", 
-      name: "Chocolate Chip Delight",
-      price: 5.49,
-      image: chocolateBun,
-      rating: 4.9,
-      reviews: 89,
-      category: "Sweet",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "3",
-      name: "Blueberry Burst",
-      price: 5.29,
-      image: blueberryBun,
-      rating: 4.7,
-      reviews: 156,
-      category: "Fruit",
-      inStock: true,
-      featured: true,
-    },
-    {
-      id: "4",
-      name: "Honey Glazed",
-      price: 4.79,
-      image: honeyBun,
-      rating: 4.6,
-      reviews: 203,
-      category: "Sweet",
-      inStock: false,
-    },
-  ];
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/products?limit=8`)
+      .then((res) => res.json())
+      .then((data: Product[]) => {
+        const fp = data.filter((p) => p.featured);
+        setFeaturedProducts(fp);
+      })
+      .catch(() => setFeaturedProducts([]));
+  }, []);
 
   return (
     <section className="py-16 bg-background">
@@ -78,7 +65,18 @@ const FeaturedProducts = () => {
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {featuredProducts.map((product) => (
-            <ProductCard key={product.id} {...product} />
+            <ProductCard
+              key={product._id}
+              id={product._id}
+              name={product.name}
+              price={product.price}
+              image={product.image || imageMap[product.category] || cinnamonBun}
+              rating={product.rating || 0}
+              reviews={product.reviews || 0}
+              category={product.category || "Uncategorized"}
+              inStock={product.inStock ?? true}
+              featured={product.featured}
+            />
           ))}
         </div>
 

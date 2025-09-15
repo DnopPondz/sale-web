@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+const API_BASE = "http://localhost:3000/api";
+
 interface CategoryInfo {
   name: string;
   count: number;
@@ -11,7 +13,7 @@ const Categories = () => {
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
 
   useEffect(() => {
-    fetch("/api/products")
+    fetch(`${API_BASE}/products`)
       .then((res) => res.json())
       .then((products: { category?: string }[]) => {
         const counts: Record<string, number> = {};
