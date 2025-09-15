@@ -10,6 +10,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminResource from "./pages/AdminResource";
 import NotFound from "./pages/NotFound";
 import { AuthProvider, useAuth } from "./AuthContext";
 
@@ -39,6 +40,14 @@ const App = () => (
               element={
                 <AdminRoute>
                   <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/:resource"
+              element={
+                <AdminRoute>
+                  <AdminResource />
                 </AdminRoute>
               }
             />

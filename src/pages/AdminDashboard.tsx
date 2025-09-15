@@ -1,15 +1,14 @@
-import { useState } from "react";
-import { 
-  BarChart3, 
-  Package, 
-  Users, 
-  ShoppingCart, 
-  DollarSign, 
-  TrendingUp,
+import { Link } from "react-router-dom";
+import {
+  BarChart3,
+  Package,
+  Users,
+  ShoppingCart,
+  DollarSign,
   Plus,
   Search,
   Filter,
-  MoreHorizontal 
+  MoreHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,8 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
-
   const stats = [
     {
       title: "Total Revenue",
@@ -113,6 +110,25 @@ const AdminDashboard = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+        </div>
+
+        {/* Management Links */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          <Button asChild variant="outline">
+            <Link to="/admin/products">Products</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/admin/orders">Orders</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/admin/users">Users</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/admin/promotions">Promotions</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/admin/coupons">Coupons</Link>
+          </Button>
         </div>
 
         {/* Stats Cards */}
