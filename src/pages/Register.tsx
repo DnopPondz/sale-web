@@ -14,20 +14,27 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (password !== confirm) {
       setError("Passwords do not match");
       return;
     }
-    const success = register(email, name, tel, password);
-    if (success) {
-      navigate("/login");
-    } else {
-      setError("Email already exists");
+    setSubmitting(true);
+    try {
+      const result = await register(email, name, tel, password);
+      if (result.success) {
+        navigate("/login");
+      } else {
+        setError(result.error ?? "Registration failed");
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -93,8 +100,12 @@ const Register = () => {
           {error && (
             <p className="text-sm text-destructive text-center">{error}</p>
           )}
-          <Button type="submit" className="w-full bg-gradient-primary hover:opacity-90">
-            Register
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-gradient-primary hover:opacity-90"
+          >
+            {submitting ? "Registering..." : "Register"}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
             Already have an account? <Link to="/login" className="text-primary">Login</Link>

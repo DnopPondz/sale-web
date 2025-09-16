@@ -11,16 +11,23 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const loggedIn = login(email, password);
-    if (loggedIn) {
-      navigate(loggedIn.role === "admin" ? "/admin" : "/");
-    } else {
-      setError("Invalid credentials");
+    setError("");
+    setSubmitting(true);
+    try {
+      const result = await login(email, password);
+      if (result.user) {
+        navigate(result.user.role === "admin" ? "/admin" : "/");
+      } else {
+        setError(result.error ?? "Invalid credentials");
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -58,8 +65,12 @@ const Login = () => {
           {error && (
             <p className="text-sm text-destructive text-center">{error}</p>
           )}
-          <Button type="submit" className="w-full bg-gradient-primary hover:opacity-90">
-            Login
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-gradient-primary hover:opacity-90"
+          >
+            {submitting ? "Logging in..." : "Login"}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
             Don't have an account? <Link to="/register" className="text-primary">Register</Link>
