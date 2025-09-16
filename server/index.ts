@@ -7,6 +7,7 @@ import { Order } from "./models/Order";
 import { User } from "./models/User";
 import { Promotion } from "./models/Promotion";
 import { Coupon } from "./models/Coupon";
+import { verifyPassword } from "./utils/password";
 
 // ---------------------- Config ----------------------
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -76,6 +77,82 @@ const server = http.createServer(async (req, res) => {
     const [api, resource, id] = parts;
 
     if (api !== "api" || !resource) {
+      return sendJson(res, { error: "Not found" }, 404);
+    }
+
+    if (resource === "auth") {
+      if (req.method !== "POST") {
+        res.setHeader("Allow", "POST,OPTIONS");
+        return sendJson(res, { error: "Method not allowed" }, 405);
+      }
+
+      const action = id;
+      if (!action) {
+        return sendJson(res, { error: "Not found" }, 404);
+      }
+
+      const raw = await getBody(req).catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(msg || "Read body failed");
+      });
+
+      let payload: Record<string, unknown> = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        return sendJson(res, { error: "Invalid JSON" }, 400);
+      }
+
+      await connectToDatabase();
+
+      if (action === "register") {
+        const name = typeof payload.name === "string" ? payload.name.trim() : "";
+        const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+        const tel = typeof payload.tel === "string" ? payload.tel.trim() : "";
+        const password = typeof payload.password === "string" ? payload.password : "";
+        if (!name || !email || !tel || password.length < 6) {
+          return sendJson(res, { error: "Missing or invalid fields" }, 400);
+        }
+
+        const existing = await User.findOne({ email }).lean();
+        if (existing) {
+          return sendJson(res, { error: "Email already registered" }, 409);
+        }
+
+        const user = await User.create({
+          name,
+          email,
+          tel,
+          password,
+          role: "user",
+        });
+
+        return sendJson(res, user.toObject(), 201);
+      }
+
+      if (action === "login") {
+        const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+        const password = typeof payload.password === "string" ? payload.password : "";
+        if (!email || !password) {
+          return sendJson(res, { error: "Email and password are required" }, 400);
+        }
+
+        const user = await User.findOne({ email }).select("+password +name +email +tel +role");
+        if (!user || typeof user.get("password") !== "string") {
+          return sendJson(res, { error: "Invalid credentials" }, 401);
+        }
+
+        const storedPassword = String(user.get("password"));
+        const isValid = verifyPassword(password, storedPassword);
+        if (!isValid) {
+          return sendJson(res, { error: "Invalid credentials" }, 401);
+        }
+
+        const safeUser = user.toObject();
+        delete (safeUser as { password?: string }).password;
+        return sendJson(res, safeUser);
+      }
+
       return sendJson(res, { error: "Not found" }, 404);
     }
 
