@@ -1,73 +1,35 @@
-# Welcome to your Lovable project
+# Bun Shop Next.js demo
 
-## Project info
+This project showcases a Bun Shop storefront and admin dashboard built with Next.js API routes. It includes:
 
-**URL**: https://lovable.dev/projects/968ee0c5-14b4-4c92-ae94-60330f68ab72
+- Client-side pages for browsing products, categories, and marketing content.
+- Authentication forms that call dedicated `/api/auth/register` and `/api/auth/login` routes backed by MongoDB.
+- Generic CRUD API endpoints under `/api/[resource]` for managing products, orders, users, promotions, and coupons.
 
-## How can I edit this code?
+## Getting started
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/968ee0c5-14b4-4c92-ae94-60330f68ab72) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Set `MONGODB_URI` in your environment before running the development server so API routes can connect to your database.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available scripts
 
-**Use GitHub Codespaces**
+- `npm run dev` – start the Next.js development server.
+- `npm run build` – create an optimized production build.
+- `npm run start` – run the production build.
+- `npm run lint` – run Next.js linting (requires project dependencies).
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Project structure
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/968ee0c5-14b4-4c92-ae94-60330f68ab72) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```
+src/
+  components/         # Reusable UI building blocks
+  context/            # Authentication context shared across pages
+  lib/                # Database helpers, password utilities, and Mongoose models
+  pages/              # Next.js pages and API routes
+    api/              # REST endpoints, including auth and resource CRUD
+    ...               # Front-end routes (home, login, register, admin, etc.)
+```
